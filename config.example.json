@@ -1,0 +1,85 @@
+{
+  "_说明": [
+    "本文件只是参考模板。推荐直接运行 `npm run setup` 交互式生成 config.json。",
+    "config.json 已被 .gitignore 忽略，授权码不会外泄。",
+    "email.pass 必须填 QQ 邮箱的『授权码』（16 位），不是 QQ 登录密码。",
+    "获取方式：QQ邮箱网页版 → 设置 → 账户 → POP3/IMAP/SMTP服务 → 开启 → 生成授权码。",
+    "也可以把授权码放进 .env（QQ_SMTP_PASS=xxxx），这里写 \"${QQ_SMTP_PASS}\" 引用它。",
+    "以下所有字段都有内置默认值，只需写你要改的部分。"
+  ],
+
+  "baseUrl": "http://my.bupt.edu.cn/",
+
+  "targets": [
+    {
+      "key": "notice",
+      "name": "校内通知",
+      "treeId": "1154",
+      "path": "list.jsp?urltype=tree.TreeTempUrl&wbtreeid=1154"
+    },
+    {
+      "key": "document",
+      "name": "校内文件",
+      "treeId": "2001",
+      "path": "list.jsp?urltype=tree.TreeTempUrl&wbtreeid=2001"
+    }
+  ],
+
+  "windowDays": 10,
+  "maxPages": 3,
+
+  "output": {
+    "mode": "local",
+    "localDir": "output",
+    "includeLink": true,
+    "includePublishDate": false,
+    "includeSource": true
+  },
+
+  "email": {
+    "enabled": false,
+    "host": "smtp.qq.com",
+    "port": 465,
+    "secure": true,
+    "user": "",
+    "pass": "",
+    "from": "",
+    "to": [],
+    "subjectPrefix": "[北邮通知]"
+  },
+
+  "network": {
+    "probeTimeoutMs": 15000,
+    "vpnPortalUrl": "https://vpn.bupt.edu.cn/",
+    "waitTimeoutMs": 900000,
+    "pollIntervalMs": 5000
+  },
+
+  "session": {
+    "profileDir": "data/chrome-profile",
+    "channel": "chrome",
+    "headless": true,
+    "loginTimeoutMs": 600000,
+    "loginPollIntervalMs": 4000
+  },
+
+  "poll": {
+    "intervalMinutes": 120,
+    "jitterSeconds": 90
+  },
+
+  "portal": {
+    "_说明": "门户 待办中心 的校园卡余额 / 未读邮件数，以及校园邮箱的未读邮件标题；面板里可单独开关",
+    "status": true,
+    "mailbox": true,
+    "mailBase": "https://mail.bupt.edu.cn",
+    "mailFolderId": 1,
+    "maxMails": 20
+  },
+
+  "log": {
+    "level": "info",
+    "file": true,
+    "console": true
+  }
+}

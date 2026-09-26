@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BUPT-Notify · 北邮校内通知转发助手</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --card: #ffffff;
+    --line: #e3e6ea;
+    --text: #1f2328;
+    --muted: #6b7280;
+    --brand: #1a5fb4;
+    --brand-dark: #14498b;
+    --ok: #1a7f37;
+    --warn: #9a6700;
+    --err: #b42318;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.55 -apple-system, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 20px; background: var(--brand); color: #fff;
+  }
+  header .logo { font-size: 17px; font-weight: 600; letter-spacing: .3px; }
+  header .sub { font-size: 12px; opacity: .85; }
+  header .spacer { flex: 1; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #9aa5b1; display: inline-block; }
+  .dot.on { background: #7ee787; box-shadow: 0 0 0 3px rgba(126,231,135,.25); }
+  .dot.busy { background: #ffd33d; animation: pulse 1s infinite; }
+  .dot.stop { background: #ff7b72; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  header .state { font-size: 12.5px; display: flex; align-items: center; gap: 7px; }
+
+  main { padding: 18px 20px 40px; max-width: 1080px; margin: 0 auto; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 16px 18px; margin-bottom: 16px;
+  }
+  .card h2 { margin: 0 0 12px; font-size: 14px; font-weight: 600; letter-spacing: .2px; }
+  .card h2 .hint { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 8px; }
+
+  .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  button {
+    font: inherit; border-radius: 8px; border: 1px solid var(--line);
+    background: #fff; color: var(--text); padding: 9px 16px; cursor: pointer;
+    transition: background .12s, border-color .12s;
+  }
+  button:hover:not(:disabled) { background: #f0f2f5; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button.primary { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 600; }
+  button.primary:hover:not(:disabled) { background: var(--brand-dark); }
+  button.ghost { border-color: transparent; background: transparent; color: var(--muted); }
+  button.danger { color: var(--err); }
+  button.danger:hover:not(:disabled) { background: #fdeceb; }
+  button.stop { background: var(--err); border-color: var(--err); color: #fff; font-weight: 600; }
+  button.stop:hover:not(:disabled) { background: #92180f; }
+
+  .banner {
+    border: 1px solid #f3c2be; background: #fdeceb; color: var(--err);
+    border-radius: 8px; padding: 10px 14px; margin-bottom: 12px;
+  }
+  .banner-title { font-weight: 600; margin-bottom: 3px; }
+  .banner-text { font-size: 12.5px; color: #8a3b34; }
+  .banner.ok { border-color: #b7e0c4; background: #e7f6ec; color: var(--ok); }
+  .banner.ok .banner-text { color: #2c6a42; }
+
+  label.field { display: block; margin-bottom: 12px; }
+  label.field > span { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 5px; }
+  input[type=text], input[type=password], input[type=number], select {
+    width: 100%; font: inherit; padding: 8px 10px; border: 1px solid var(--line);
+    border-radius: 8px; background: #fff; color: var(--text);
+  }
+  input:focus, select:focus { outline: 2px solid rgba(26,95,180,.25); border-color: var(--brand); }
+
+  .row { display: flex; gap: 12px; }
+  .row > * { flex: 1; }
+
+  .slider-row { display: flex; align-items: center; gap: 14px; }
+  input[type=range] { flex: 1; accent-color: var(--brand); }
+  .slider-val { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 116px; text-align: right; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 10px; }
+  .stat { background: #fafbfc; border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; }
+  .stat .k { font-size: 11.5px; color: var(--muted); }
+  .stat .v { font-size: 15px; font-weight: 600; margin-top: 2px; word-break: break-all; }
+
+  .badge { display: inline-block; font-size: 11.5px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); background: #f3f5f7; color: var(--muted); }
+  .badge.ok { background: #e7f6ec; border-color: #b7e0c4; color: var(--ok); }
+  .badge.warn { background: #fff6e0; border-color: #f0d9a0; color: var(--warn); }
+  .badge.err { background: #fdeceb; border-color: #f3c2be; color: var(--err); }
+
+  ul.items { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow: auto; }
+  ul.items li { padding: 9px 2px; border-bottom: 1px solid var(--line); }
+  ul.items li:last-child { border-bottom: 0; }
+  ul.items a { color: var(--brand); text-decoration: none; }
+  ul.items a:hover { text-decoration: underline; }
+  .meta { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+
+  #log { font: 12px/1.6 ui-monospace, Consolas, monospace; background: #1f2328; color: #d6dde6; padding: 12px; border-radius: 8px; height: 240px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
+  #log .l-warn { color: #ffd33d; }
+  #log .l-error { color: #ff9d95; }
+  #log .l-item { color: #7ee787; }
+
+  .note { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .portal-strip { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
+  #toast {
+    position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(20px);
+    background: #1f2328; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 13px;
+    opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 50; max-width: 80vw;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast.err { background: var(--err); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <div class="logo">BUPT-Notify</div>
+    <div class="sub">北邮校内通知 / 校内文件 自动转发助手</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="state"><span class="dot" id="dot"></span><span id="stateText">正在连接…</span></div>
+</header>
+
+<main>
+  <!-- 立即抓取 + 概览 -->
+  <div class="card" id="controlCard">
+    <h2>运行控制</h2>
+
+    <!-- Shown only while scraping is stopped. -->
+    <div id="stoppedBanner" class="banner hidden">
+      <div class="banner-title">已停止抓取</div>
+      <div class="banner-text" id="stoppedText">
+        自动轮询与手动抓取均已停用，正在进行的任务也已中断。点「恢复自动抓取」继续。
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="primary" id="btnRun">立即抓取</button>
+      <button id="btnRunDry">试运行（不发送）</button>
+      <button class="danger" id="btnStop" title="停止自动轮询并中断正在进行的抓取">停止抓取</button>
+      <button class="primary hidden" id="btnResume">恢复自动抓取</button>
+      <span class="spacer" style="flex:1"></span>
+      <button class="ghost" id="btnLogout" title="清除浏览器登录会话，下次运行会重新登录">清除登录会话</button>
+    </div>
+    <div class="note" id="runNote">点击「立即抓取」会立刻执行一次抓取，并按当前设置转发。</div>
+
+    <div class="stats" style="margin-top:14px">
+      <div class="stat"><div class="k">状态</div><div class="v" id="sState">—</div></div>
+      <div class="stat"><div class="k">当前步骤</div><div class="v" id="sStage" style="font-size:13px">—</div></div>
+      <div class="stat"><div class="k">下次自动检查</div><div class="v" id="sNext" style="font-size:13px">—</div></div>
+      <div class="stat"><div class="k">上次新增</div><div class="v" id="sNew">—</div></div>
+      <div class="stat"><div class="k">已记录条目</div><div class="v" id="sStore">—</div></div>
+      <div class="stat"><div class="k">获取方式</div><div class="v" id="sMode" style="font-size:12.5px">—</div></div>
+    </div>
+
+    <!-- 待办中心：校园卡余额 / 未读邮件数（每次抓取时一并读取） -->
+    <div id="portalStrip" class="portal-strip hidden">
+      <span class="badge" id="pBalance">校园卡余额 —</span>
+      <span class="badge" id="pMail">未读邮件 —</span>
+      <span class="badge" id="pBooks">借阅 —</span>
+      <span class="badge" id="pOwed">欠款 —</span>
+      <span class="spacer" style="flex:1"></span>
+      <a id="pMailLink" href="https://mail.bupt.edu.cn/" target="_blank" rel="noreferrer"
+         style="font-size:12px;color:var(--brand);text-decoration:none">打开校园邮箱 ↗</a>
+    </div>
+    <div class="note hidden" id="portalError"></div>
+  </div>
+
+  <div class="grid">
+    <!-- 抓取设置 -->
+    <div class="card">
+      <h2>抓取设置</h2>
+      <div class="note" style="margin-bottom:12px">
+        抓取频率在下面的「定时自动抓取」里设置。
+      </div>
+
+      <label class="field">
+        <span>只看最近多少天内的内容</span>
+        <input type="number" id="windowDays" min="1" max="365" step="1" value="10" />
+      </label>
+      <div class="note" id="windowDaysHint" style="margin-top:-4px;margin-bottom:10px">
+        只转发这个天数以内、且此前没转发过的内容。窗口调大时会按需多翻几页，
+        所以<b>可能一次带上较多此前没发过的旧内容</b>。
+      </div>
+
+      <label class="field">
+        <span>获取方式</span>
+        <select id="outputMode">
+          <option value="local">只保存到本地文件</option>
+          <option value="email">只发送到邮箱</option>
+          <option value="both">本地文件 + 邮箱</option>
+        </select>
+      </label>
+
+      <label class="field" style="display:flex;gap:8px;align-items:center">
+        <input type="checkbox" id="includeLink" style="width:auto" />
+        <span style="margin:0">在转发内容里附带原文链接</span>
+      </label>
+
+      <label class="field" style="display:flex;gap:8px;align-items:center">
+        <input type="checkbox" id="notifyWhenEmpty" style="width:auto" />
+        <span style="margin:0">没有新内容时也发一封邮件（提示无信息）</span>
+      </label>
+
+      <label class="field" id="emptyIntervalField">
+        <span>「无新内容」提醒频率</span>
+        <select id="emptyInterval">
+          <option value="0">每次检查都发</option>
+          <option value="6">每 6 小时最多一次</option>
+          <option value="12">每 12 小时最多一次</option>
+          <option value="24">每天最多一次</option>
+        </select>
+      </label>
+
+      <label class="field" style="display:flex;gap:8px;align-items:center">
+        <input type="checkbox" id="portalStatus" style="width:auto" />
+        <span style="margin:0">附带校园卡余额和未读邮件数量</span>
+      </label>
+
+      <label class="field" style="display:flex;gap:8px;align-items:center">
+        <input type="checkbox" id="mailbox" style="width:auto" />
+        <span style="margin:0">转发未读邮件的标题</span>
+      </label>
+      <div class="note" style="margin-top:-4px;margin-bottom:10px">
+        这两项都走同一个登录会话，不需要额外密码；读取失败只会在日志里提示，不影响通知转发。
+      </div>
+
+      <button class="primary" id="btnSaveSettings">保存设置</button>
+    </div>
+
+    <!-- 定时抓取 -->
+    <div class="card">
+      <h2>定时自动抓取 <span class="hint">用 Windows 计划任务，软件关着也能按时抓</span></h2>
+
+      <div id="autostartState" class="note" style="margin-bottom:12px">正在查询…</div>
+
+      <label class="field" id="taskIntervalField">
+        <span>每隔多久抓一次（拖动选择，1–24 小时任意值）</span>
+        <div class="slider-row">
+          <input type="range" id="taskInterval" min="1" max="24" step="1" value="3" />
+          <span class="slider-val" id="taskIntervalVal">每 3 小时</span>
+        </div>
+      </label>
+
+      <label class="field" style="display:flex;gap:8px;align-items:center">
+        <input type="checkbox" id="taskEnabled" style="width:auto" />
+        <span style="margin:0">启用定时自动抓取</span>
+      </label>
+
+      <div class="actions">
+        <button class="primary" id="btnSaveTask">保存定时设置</button>
+        <button id="btnRunTaskNow">立即执行一次</button>
+      </div>
+
+      <div class="note">
+        启用后会注册一个名为 <b>BUPT-Notify</b> 的计划任务：每 N 小时在后台执行一次抓取，
+        <b>跑完就退出</b>——不会常驻内存，也不会弹任何窗口。
+        取消勾选即可关闭。
+      </div>
+    </div>
+
+    <!-- 账号与邮箱 -->
+    <div class="card">
+      <h2>登录账号 <span class="hint">保存后可自动登录，免去每次手动认证</span></h2>
+      <div id="credState" class="note" style="margin-bottom:10px"></div>
+      <div id="credPaused" class="banner hidden" style="margin-bottom:10px">
+        <div class="banner-title" id="credPausedTitle">自动登录已暂停</div>
+        <div class="banner-text" id="credPausedText"></div>
+        <div style="margin-top:8px">
+          <button id="btnResetBackoff" style="font-size:12.5px;padding:6px 12px">清除暂停，立即重试自动登录</button>
+        </div>
+      </div>
+      <label class="field">
+        <span>统一身份认证账号（学号）</span>
+        <input type="text" id="credUser" placeholder="例如 2021000000" autocomplete="off" />
+      </label>
+      <label class="field">
+        <span>密码</span>
+        <input type="password" id="credPass" placeholder="登录 my.bupt.edu.cn 的密码" autocomplete="off" />
+      </label>
+      <div class="actions">
+        <button class="primary" id="btnSaveCred">保存账号</button>
+        <button class="danger" id="btnClearCred">删除已保存账号</button>
+      </div>
+      <div class="note" id="credNote"></div>
+    </div>
+  </div>
+
+  <!-- 邮箱设置 -->
+  <div class="card" id="emailCard">
+    <h2>邮箱设置 <span class="hint">QQ 邮箱需填 16 位授权码，不是登录密码</span></h2>
+    <div class="row">
+      <label class="field">
+        <span>发件 QQ 邮箱</span>
+        <input type="text" id="emailUser" placeholder="123456@qq.com" autocomplete="off" />
+      </label>
+      <label class="field">
+        <span>收件邮箱（多个用逗号分隔）</span>
+        <input type="text" id="emailTo" placeholder="收件邮箱@example.com" autocomplete="off" />
+      </label>
+    </div>
+    <label class="field">
+      <span>SMTP 授权码</span>
+      <input type="password" id="emailPass" placeholder="16 位授权码（留空表示不修改）" autocomplete="off" />
+    </label>
+    <div class="actions">
+      <button class="primary" id="btnSaveEmail">保存邮箱设置</button>
+      <button id="btnTestEmail">发送测试邮件</button>
+    </div>
+    <div class="note">
+      授权码获取：QQ邮箱网页版 → 设置 → 账户 → POP3/IMAP/SMTP服务 → 开启 → 生成授权码。
+    </div>
+  </div>
+
+  <!-- 最近转发 -->
+  <div class="card">
+    <h2>最近转发的内容 <span class="hint" id="itemsHint"></span></h2>
+    <ul class="items" id="items"></ul>
+  </div>
+
+  <!-- 日志 -->
+  <div class="card">
+    <h2>运行日志</h2>
+    <div id="log"></div>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+const TOKEN = "__BUPT_TOKEN__";
+const $ = (id) => document.getElementById(id);
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    ...opts,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-BUPT-Token': TOKEN,
+      ...(opts.headers || {}),
+    },
+  });
+  let data = {};
+  try { data = await res.json(); } catch { /* empty body */ }
+  return { status: res.status, ...data };
+}
+
+let toastTimer = null;
+function toast(msg, isErr = false) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'show' + (isErr ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, 3200);
+}
+
+const fmtTime = (iso) => {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+};
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+let settingsDirty = false;
+let lastEventCount = -1;
+let emailPrefilled = false;
+
+function render(st) {
+  const stopped = Boolean(st.stopped);
+
+  // header
+  const dot = $('dot');
+  if (stopped) dot.className = 'dot stop';
+  else dot.className = 'dot' + (st.busy ? ' busy' : ' on');
+  $('stateText').textContent = stopped ? '已停止抓取' : st.busy ? `正在抓取 · ${st.stage || ''}` : '运行中 · 监控已开启';
+
+  // stop / resume affordances
+  $('stoppedBanner').classList.toggle('hidden', !stopped);
+  $('btnResume').classList.toggle('hidden', !stopped);
+  $('btnStop').classList.toggle('hidden', stopped);
+  $('btnRun').disabled = stopped;
+  $('btnRunDry').disabled = stopped;
+  $('btnRun').title = stopped ? '已停止抓取，请先点「恢复自动抓取」' : '';
+  $('btnRunDry').title = $('btnRun').title;
+  // Only offer a hard "stop" while something is actually running or scheduled.
+  $('btnStop').textContent = st.busy ? '停止抓取（进行中）' : '停止抓取';
+  $('btnStop').className = st.busy ? 'stop' : 'danger';
+
+  // stats
+  const last = st.lastRun;
+  $('sState').innerHTML = stopped
+    ? '<span class="badge err">已停止</span>'
+    : st.busy
+      ? '<span class="badge warn">抓取中</span>'
+      : last
+        ? (last.cancelled
+            ? '<span class="badge warn">已停止</span>'
+            : last.ok
+              ? '<span class="badge ok">正常</span>'
+              : '<span class="badge err">失败</span>')
+        : '<span class="badge">待运行</span>';
+  $('sStage').textContent = st.stage || '—';
+  // In task mode the schedule lives in Windows Task Scheduler, not in this
+  // process, so prefer the task's own next-run time.
+  const nextText = taskNextRun
+    ? `${fmtTime(taskNextRun)}（计划任务）`
+    : st.busy ? '抓取中…' : (st.nextRunAt ? fmtTime(st.nextRunAt) : '—');
+  $('sNext').textContent = stopped ? '已停用' : nextText;
+  $('sNew').textContent = last ? (last.newItems ?? 0) : '—';
+  $('sStore').textContent = st.storeSize;
+  $('sMode').textContent = st.outputDescription || '—';
+
+  if (stopped) {
+    $('runNote').innerHTML = '抓取已停止：自动轮询和手动抓取都已停用，正在进行的任务已中断。';
+  } else if (last && last.cancelled) {
+    $('runNote').innerHTML = '<span style="color:var(--warn)">上一轮被手动停止，未投递任何内容。</span>';
+  } else if (last && !last.ok && last.error) {
+    $('runNote').innerHTML = `<span style="color:var(--err)">上次失败：${esc(last.error)}</span>`;
+  } else {
+    $('runNote').textContent = '点击「立即抓取」会立刻执行一次抓取。定时抓取由 Windows 计划任务负责，关闭本窗口不会影响它。';
+  }
+
+  // settings (don't clobber while typing)
+  if (!settingsDirty) {
+    $('windowDays').value = st.windowDays;
+    $('outputMode').value = st.outputMode || 'local';
+    $('includeLink').checked = st.includeLink !== false;
+    $('notifyWhenEmpty').checked = st.notifyWhenEmpty !== false;
+    $('emptyInterval').value = String(st.emptyNotifyIntervalHours || 0);
+    $('emptyIntervalField').style.display = $('notifyWhenEmpty').checked ? '' : 'none';
+    $('portalStatus').checked = st.portalStatusEnabled !== false;
+    $('mailbox').checked = st.mailboxEnabled !== false;
+  }
+  renderWindowHint(st);
+
+  // 待办中心 (校园卡余额 / 未读邮件数), read on every run
+  renderPortal(st);
+
+  // credentials
+  $('credState').innerHTML = st.hasCredentials
+    ? `已保存账号：<b>${esc(st.credentialUsername)}</b> ${st.autoLoginPaused
+        ? `<span class="badge warn">自动登录暂停 ${st.autoLoginCooldownMinutes} 分钟</span>`
+        : '<span class="badge ok">自动登录已启用</span>'}`
+    : '<span class="badge warn">尚未保存账号</span> 会话过期时需要手动登录';
+  if (!$('credUser').value && st.credentialUsername) $('credUser').value = st.credentialUsername;
+
+  // Explain the pause honestly: only a real credential rejection counts.
+  const paused = Boolean(st.autoLoginPaused);
+  $('credPaused').classList.toggle('hidden', !paused);
+  if (paused) {
+    $('credPausedText').innerHTML =
+      `连续 <b>${st.autoLoginFailures}</b> 次被统一身份认证拒绝登录（上限 ${st.autoLoginMaxFailures} 次），` +
+      `为避免账号被锁定，暂停 ${st.autoLoginCooldownMinutes} 分钟。<br>` +
+      (st.autoLoginLastFailureReason
+        ? `服务器返回：<b>${esc(st.autoLoginLastFailureReason)}</b><br>` +
+          `如果密码已经改对，点下面的按钮清除暂停并立即重试。`
+        : '');
+  }
+
+  // email fields (prefill once, never clobber what the user typed)
+  if (document.activeElement !== $('emailUser') && !emailPrefilled) $('emailUser').value = st.emailUser || '';
+  if (document.activeElement !== $('emailTo') && !emailPrefilled) $('emailTo').value = st.emailTo || '';
+  if (st.emailUser && st.emailTo) emailPrefilled = true;
+
+  // items
+  const items = st.recentItems || [];
+  $('itemsHint').textContent = items.length ? `最近 ${items.length} 条` : '';
+  $('items').innerHTML = items.length
+    ? items.map((it) => `
+        <li>
+          <div>${it.url ? `<a href="${esc(it.url)}" target="_blank" rel="noreferrer">${esc(it.title)}</a>` : esc(it.title)}</div>
+          <div class="meta">${esc(it.source || '')} · 转发于 ${esc(fmtTime(it.forwardedAt))}${it.date ? ` · 发布 ${esc(it.date)}` : ''}</div>
+        </li>`).join('')
+    : '<li class="meta">暂无记录</li>';
+
+  // events
+  const events = st.events || [];
+  if (events.length !== lastEventCount) {
+    lastEventCount = events.length;
+    const logEl = $('log');
+    logEl.innerHTML = events.map((e) => {
+      const t = new Date(e.at).toLocaleTimeString('zh-CN');
+      return `<div class="l-${e.level}">${t}  ${esc(e.message)}</div>`;
+    }).join('');
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+}
+
+/**
+ * Make the window setting legible: how many list pages a column will be walked
+ * for the current number of days (the collector derives this, see
+ * derivePageBudget). Editing the field previews the new value immediately.
+ */
+function renderWindowHint(st) {
+  const el = $('windowDaysHint');
+  const days = Number($('windowDays').value) || st.windowDays;
+  const budget = Number(st.pageBudget) || 3;
+  const configured = Number(st.maxPages) || 3;
+  let extra = '';
+  if (days !== st.windowDays) {
+    // Preview: one page per month of window, never below the configured maxPages,
+    // capped at 12 (the same rule the collector applies).
+    const preview = Math.max(1, Math.min(12, Math.max(configured, Math.ceil(days / 30))));
+    extra = `　→ 保存后每栏目最多翻 <b>${preview}</b> 页（当前 ${budget} 页）`;
+  } else {
+    extra = `　当前：每个栏目最多翻 <b>${budget}</b> 页（约 ${budget * 20} 条）`;
+  }
+  el.innerHTML =
+    `只转发这个天数以内、且此前没转发过的内容。窗口调大时会按需多翻几页，` +
+    `所以<b>可能一次带上较多此前没发过的旧内容</b>。${extra}`;
+}
+
+/**
+ * 待办中心 strip: 校园卡余额 / 未读邮件数 / 借阅 / 欠款.
+ *
+ * `portalStatus` is the last widget read, persisted by the app so the panel can
+ * show it even when this process did not do the run (the scheduled task is a
+ * separate short-lived process).
+ */
+function renderPortal(st) {
+  const s = st.portalStatus;
+  const strip = $('portalStrip');
+  const err = $('portalError');
+  const enabled = st.portalStatusEnabled !== false || st.mailboxEnabled !== false;
+
+  if (s && s.ok) {
+    strip.classList.remove('hidden');
+    $('pBalance').textContent = s.balance === null || s.balance === undefined
+      ? '校园卡余额 未知'
+      : `校园卡余额 ¥${Number(s.balance).toFixed(2)}`;
+    $('pMail').textContent = s.unreadMail === null || s.unreadMail === undefined
+      ? '未读邮件 未知'
+      : `未读邮件 ${s.unreadMail} 封`;
+    $('pMail').className = s.unreadMail ? 'badge warn' : 'badge';
+    $('pBooks').textContent = `借阅 ${s.borrowed ?? 0} 本`;
+    $('pOwed').textContent = `欠款 ¥${Number(s.owed || 0).toFixed(2)}`;
+    $('pOwed').className = Number(s.owed) > 0 ? 'badge err' : 'badge';
+    const when = s.fetchedAt ? new Date(s.fetchedAt).toLocaleString('zh-CN') : '';
+    err.classList.add('hidden');
+    $('portalStrip').title = when ? `读取于 ${when}` : '';
+  } else if (enabled && !st.busy) {
+    strip.classList.add('hidden');
+    if (s && s.error) {
+      err.classList.remove('hidden');
+      err.innerHTML = `<span style="color:var(--warn)">待办中心读取失败：${esc(s.error)}</span>`;
+    } else {
+      err.classList.add('hidden');
+    }
+  }
+
+  const url = st.mailboxUrl || 'https://mail.bupt.edu.cn/';
+  $('pMailLink').href = url;
+}
+
+async function refresh() {  try {
+    const r = await api('/api/status');
+    if (r.ok) render(r.status);
+  } catch {
+    $('stateText').textContent = '连接已断开';
+    $('dot').className = 'dot';
+  }
+}
+
+/* ------------------------------- actions -------------------------------- */
+
+$('windowDays').addEventListener('change', () => { settingsDirty = true; });
+for (const id of ['outputMode', 'includeLink', 'notifyWhenEmpty', 'emptyInterval', 'portalStatus', 'mailbox']) {
+  $(id).addEventListener('change', () => {
+    settingsDirty = true;
+    if (id === 'notifyWhenEmpty') {
+      $('emptyIntervalField').style.display = $('notifyWhenEmpty').checked ? '' : 'none';
+    }
+  });
+}
+
+$('btnSaveSettings').addEventListener('click', async () => {
+  const body = {
+    windowDays: Number($('windowDays').value),
+    outputMode: $('outputMode').value,
+    includeLink: $('includeLink').checked,
+    notifyWhenEmpty: $('notifyWhenEmpty').checked,
+    emptyNotifyIntervalHours: Number($('emptyInterval').value),
+    portalStatus: $('portalStatus').checked,
+    mailbox: $('mailbox').checked,
+  };
+  const r = await api('/api/settings', { method: 'POST', body: JSON.stringify(body) });
+  if (r.ok) {
+    settingsDirty = false;
+    toast(`设置已保存：${(r.applied || []).join('；')}`);
+    refresh();
+  } else {
+    toast((r.errors || [r.error]).join('；'), true);
+  }
+});
+
+/* --------------------------- 定时自动抓取 ------------------------------- */
+
+let taskBusy = false;
+let taskPrefilled = false;
+/** Next run time reported by the scheduled task (task mode owns the schedule). */
+let taskNextRun = null;
+
+async function refreshAutostart() {
+  try {
+    const r = await api('/api/autostart');
+    if (!r.ok) return;
+    const el = $('autostartState');
+    if (!r.supported) { el.innerHTML = '<span class="badge warn">仅支持 Windows</span>'; return; }
+    taskNextRun = r.installed ? (r.nextRunTime || null) : null;
+
+    if (r.installed) {
+      const every = r.intervalHours ? `每 ${r.intervalHours} 小时` : '按计划';
+      const extra = [];
+      if (Array.isArray(r.triggers) && r.triggers.includes('logon')) extra.push('登录后也会跑一次');
+      if (r.lastRunTime) extra.push(`上次运行 ${fmtTime(r.lastRunTime)}`);
+      if (r.nextRunTime) extra.push(`下次 ${fmtTime(r.nextRunTime)}`);
+      el.innerHTML = `<span class="badge ok">已启用</span> <b>${esc(every)}</b>后台执行一次，跑完自动退出`
+        + (extra.length ? `<br><span class="note">${esc(extra.join(' · '))}</span>` : '');
+    } else {
+      el.innerHTML = '<span class="badge warn">未启用</span> 不会自动抓取，只能在打开本面板时手动点「立即抓取」';
+    }
+
+    if (!taskPrefilled) {
+      $('taskEnabled').checked = Boolean(r.installed);
+      const hours = Math.round(r.intervalHours || r.defaultIntervalHours || 3);
+      $('taskInterval').value = String(Math.min(24, Math.max(1, hours)));
+      $('taskIntervalVal').textContent = hoursLabel($('taskInterval').value);
+      taskPrefilled = true;
+    }
+    $('taskIntervalField').style.display = $('taskEnabled').checked ? '' : 'none';
+  } catch { /* keep the previous state */ }
+}
+
+/** "每 N 小时" / "每 1 小时 30 分" for fractional intervals. */
+function hoursLabel(value) {
+  const h = Number(value);
+  if (!Number.isFinite(h)) return '—';
+  const whole = Math.floor(h);
+  const mins = Math.round((h - whole) * 60);
+  if (mins === 0) return `每 ${whole} 小时`;
+  if (whole === 0) return `每 ${mins} 分钟`;
+  return `每 ${whole} 小时 ${mins} 分`;
+}
+
+$('taskInterval').addEventListener('input', () => {
+  $('taskIntervalVal').textContent = hoursLabel($('taskInterval').value);
+  // Mark the schedule as edited so a background refresh does not snap the
+  // slider back while the user is dragging it.
+  taskPrefilled = true;
+});
+
+$('taskEnabled').addEventListener('change', () => {
+  $('taskIntervalField').style.display = $('taskEnabled').checked ? '' : 'none';
+});
+
+$('btnSaveTask').addEventListener('click', async () => {
+  taskBusy = true;
+  $('btnSaveTask').disabled = true;
+  try {
+    const body = {
+      enabled: $('taskEnabled').checked,
+      intervalHours: Number($('taskInterval').value),
+    };
+    const r = await api('/api/autostart', { method: 'POST', body: JSON.stringify(body) });
+    if (r.ok) {
+      toast(body.enabled ? `已启用：${hoursLabel(body.intervalHours)}后台抓取一次` : '已取消定时自动抓取');
+      taskPrefilled = false;
+    } else {
+      toast(`操作失败：${r.error || '未知错误'}`, true);
+    }
+  } finally {
+    taskBusy = false;
+    $('btnSaveTask').disabled = false;
+    refreshAutostart();
+    refresh();
+  }
+});
+
+$('btnRunTaskNow').addEventListener('click', async () => {
+  const r = await api('/api/run', { method: 'POST' });
+  if (r.ok) toast('已开始抓取…');
+  else toast(r.error || '无法启动抓取', true);
+  refresh();
+});
+
+/* --------------------------- 最小化时降载 ------------------------------ */
+
+// Report visibility to the server so a minimised window stops polling every 2s.
+let lastHiddenReport = null;
+function reportVisibility() {
+  const hidden = document.hidden || document.visibilityState === 'hidden';
+  if (hidden === lastHiddenReport) return;
+  lastHiddenReport = hidden;
+  api('/api/window-state', { method: 'POST', body: JSON.stringify({ hidden }) })
+    .then((r) => { if (r && r.pollMs) pollMs = r.pollMs; })
+    .catch(() => {});
+}
+document.addEventListener('visibilitychange', reportVisibility);
+window.addEventListener('blur', reportVisibility);
+window.addEventListener('focus', reportVisibility);
+
+$('btnRun').addEventListener('click', () => run(false));
+$('btnRunDry').addEventListener('click', () => run(true));
+
+$('btnStop').addEventListener('click', async () => {
+  $('btnStop').disabled = true;
+  try {
+    const r = await api('/api/stop', { method: 'POST' });
+    toast(r.message || '已停止抓取', !r.ok);
+  } finally {
+    $('btnStop').disabled = false;
+    refresh();
+  }
+});
+
+$('btnResume').addEventListener('click', async () => {
+  $('btnResume').disabled = true;
+  try {
+    const r = await api('/api/resume', { method: 'POST' });
+    toast(r.message || '已恢复自动抓取', !r.ok);
+  } finally {
+    $('btnResume').disabled = false;
+    refresh();
+  }
+});
+
+async function run(dryRun) {
+  const r = await api('/api/run' + (dryRun ? '?dryRun=1' : ''), { method: 'POST' });
+  if (r.ok) toast(dryRun ? '已开始试运行…' : '已开始抓取…');
+  else toast(r.error || '无法启动抓取', true);
+  refresh();
+}
+
+$('btnSaveCred').addEventListener('click', async () => {
+  const username = $('credUser').value.trim();
+  const password = $('credPass').value;
+  const r = await api('/api/credentials', { method: 'POST', body: JSON.stringify({ username, password }) });
+  if (r.ok) {
+    $('credPass').value = '';
+    toast(`已保存账号（${r.enc === 'dpapi' ? 'Windows DPAPI 加密' : '明文存储'}）`);
+    refresh();
+  } else toast(r.error || '保存失败', true);
+});
+
+$('btnClearCred').addEventListener('click', async () => {
+  const r = await api('/api/credentials', { method: 'DELETE' });
+  if (r.ok) { $('credPass').value = ''; toast('已删除保存的账号'); refresh(); }
+});
+
+$('btnResetBackoff').addEventListener('click', async () => {
+  const r = await api('/api/auto-login/reset', { method: 'POST' });
+  if (r.ok) { toast('已清除暂停，下一次运行会重新尝试自动登录'); refresh(); }
+  else toast(r.error || '清除失败', true);
+});
+
+$('btnSaveEmail').addEventListener('click', async () => {
+  const body = { user: $('emailUser').value.trim(), to: $('emailTo').value.trim() };
+  if ($('emailPass').value) body.pass = $('emailPass').value;
+  const r = await api('/api/email', { method: 'POST', body: JSON.stringify(body) });
+  if (r.ok) { $('emailPass').value = ''; toast('邮箱设置已保存'); refresh(); }
+  else toast((r.errors || [r.error]).join('；'), true);
+});
+
+$('btnTestEmail').addEventListener('click', async () => {
+  toast('正在测试 SMTP…');
+  const r = await api('/api/test-email', { method: 'POST' });
+  if (r.ok && r.stage === 'sent') toast('测试邮件已发送，请查收');
+  else toast(`测试失败：${r.error}`, true);
+  refresh();
+});
+
+$('btnLogout').addEventListener('click', async () => {
+  await api('/api/logout', { method: 'POST' });
+  toast('已清除登录会话');
+  refresh();
+});
+
+$('includeLink').checked = true;
+
+/**
+ * Adaptive status polling.
+ *
+ * 2s while the window is visible; 30s once it is minimised/hidden (the server
+ * tells us the rate). A minimised panel therefore costs almost nothing, which is
+ * the point of the minimise handling: the scraping schedule keeps running, but
+ * the UI stops waking the CPU every couple of seconds.
+ */
+let pollMs = 2000;
+let pollTimer = null;
+
+async function pollLoop() {
+  await refresh();
+  pollTimer = setTimeout(pollLoop, Math.max(1000, pollMs));
+}
+
+refresh();
+refreshAutostart();
+pollLoop();
+setInterval(refreshAutostart, 15000);
+</script>
+</body>
+</html>

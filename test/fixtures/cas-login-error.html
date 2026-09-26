@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<!--
+  Fixture: the CAS login page re-rendered AFTER the server rejected the login.
+  The real page carries the message in #errorDiv (the inline script does
+  `config.error = $("#errorDiv p").text() || null;`).
+
+  Used to verify that only a REAL credential rejection counts towards the
+  auto-login lockout backoff, and that the server's own wording is surfaced to
+  the user instead of a guess.
+-->
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>统一身份认证</title></head>
+<body style="background-color: grey;">
+  <iframe id="loginIframe" src="cas-iframe-empty.html"></iframe>
+  <div id="default" class="container" style="display: none;">
+    <div class="border">
+      <div class="system">统一身份认证</div>
+      <div class="service" id="targetSystem">信息门户</div>
+      <div id="errorDiv" class="error">
+        <p>用户名或密码错误，请重新输入</p>
+      </div>
+      <form method="post" id="loginForm">
+        <input type="text" class="form-control" name="username">
+        <input type="password" class="form-control" name="password">
+        <input class="btn btn-login" type="submit" name="submit" value="登录">
+        <div style="display: none;">
+          <input name="type" value="username_password">
+          <input name="execution" value="err-execution-token">
+          <input name="_eventId" value="submit">
+        </div>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

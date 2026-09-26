@@ -1,0 +1,23 @@
+# 统一换行符，避免 Windows / Linux 之间产生无意义的整文件 diff。
+# 仓库内一律保存为 LF；检出时按下面的规则转换。
+* text=auto eol=lf
+
+# Windows 批处理必须是 CRLF，否则个别情况下会执行异常
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# PowerShell 脚本保持 CRLF，符合 Windows 习惯
+*.ps1 text eol=crlf
+*.psm1 text eol=crlf
+
+# VBScript 由 wscript 执行，同样用 CRLF
+*.vbs text eol=crlf
+
+# 二进制文件不做任何转换
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.woff binary
+*.woff2 binary

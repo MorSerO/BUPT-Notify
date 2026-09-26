@@ -1,0 +1,11 @@
+<!--
+  test/fixtures/mail-sso-redirect.html
+
+  What https://register.bupt.cn/mail/login answers with once the portal session
+  is valid: a tiny script that hands the browser a ONE-SHOT SSO URL.
+
+  The real page carries a one-shot key that is valid for a single request; the
+  value here is an obvious placeholder and the account is fake. Nothing from a
+  live session is stored in this repository.
+  -->
+<script type='text/javascript'>parent.window.location.href = 'http://mail.bupt.edu.cn/cgi-bin/login?fun=bizopenssologin&method=openapi&userid=example@bupt.edu.cn&authkey=PLACEHOLDER-NOT-A-REAL-KEY'</script>

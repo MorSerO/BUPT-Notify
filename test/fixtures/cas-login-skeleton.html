@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<!--
+  Sanitised fixture: the BUPT 统一身份认证 (CAS) login page skeleton.
+
+  Captured from https://auth.bupt.edu.cn/authserver/login on 2026-09-25 and then
+  REDACTED. Every real identifier was replaced with a placeholder, and the page's
+  obfuscated anti-bot JavaScript and inline images were dropped. What remains is
+  exactly the structure the tests depend on:
+
+    - the visible UI lives in <iframe id="loginIframe"> (full viewport)
+    - a hidden <div id="default"> carries the same form (the fallback panel)
+    - submitting goes through the page global doLogin(), which fills #loginForm
+      and clicks its submit input; a `firstLogin` latch allows one attempt per
+      page load
+    - the captcha is conditional on config.captcha
+
+  Do NOT paste real portal HTML back in here: it carries third-party app ids
+  (企业微信 / 移动校园) that secret scanners flag.
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>统一身份认证</title>
+<link rel="stylesheet" href="/authserver/css/bootstrap.min.css">
+<link rel="stylesheet" href="/authserver/css/index.css">
+</head>
+<body>
+  <iframe id="loginIframe" src="/authserver/cas/login-normal.html"></iframe>
+
+  <div id="default" class="container" style="display: none;">
+    <div class="border col-lg-4 col-lg-offset-4 col-md-4 col-md-offset-4 col-sm-6 col-sm-offset-3">
+      <div class="system">统一身份认证</div>
+      <div class="service" id="targetSystem">信息门户</div>
+      <div class="service" id="targetSystemDescription" style="display: none;">信息门户</div>
+      <div id="errorDiv" class="error" style="display: none;"><p></p></div>
+
+      <form method="post" id="loginForm">
+        <div class="form-group">
+          <label><span>用户名</span><input type="text" class="form-control" name="username"></label>
+        </div>
+        <div class="form-group">
+          <label><span>密码</span><input type="password" class="form-control" name="password" autocomplete="off"></label>
+        </div>
+        <div class="form-group" style="display: none;" id="captchaParent">
+          <label>
+            <span style="display: none;" id="captchaLabel">验证码</span>
+            <div id="captchaDiv"></div>
+          </label>
+        </div>
+        <div class="form-group">
+          <input class="btn btn-login" type="submit" name="submit" value="登录">
+        </div>
+        <div style="display: none;">
+          <input name="type" value="username_password">
+          <input name="execution" value="REDACTED-EXECUTION-TOKEN">
+          <input name="_eventId" value="submit">
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="pac4jUrls" style="display: none;">
+    <a href="clientredirect?client_name=sample-sso&amp;service=REDACTED">统一身份认证</a>
+  </div>
+
+<script type="text/javascript">
+var config = {};
+config.locale = $("#language").text();
+config.error = $("#errorDiv p").text() || null;
+
+var firstLogin = true;
+function doLogin(username, password, type, captcha) {
+    if (firstLogin) firstLogin = false;
+    else return;
+
+    var lginfm = document.getElementById('loginForm');
+    $("#loginForm input[name='username']").val(username);
+    $("#loginForm input[name='password']").val(password);
+    $("#loginForm input[name='type']").val(type);
+    if (captcha) {
+        $("#loginForm input[name='captcha']").val(captcha);
+    }
+    $("#loginForm input[name='submit']").click();
+}
+
+function getPageConfig() {
+    return config;
+}
+</script>
+
+<script type="text/javascript">
+// Third-party SSO clients. The app ids below are REDACTED placeholders: the real
+// values belong to the university and are flagged by secret scanners.
+config.wechatWork = {};
+var wwClients = JSON.parse('[{"agentid":"0000000","redirectUrl":"clientredirect?client_name=ww-direct&service=REDACTED","clientName":"ww-direct","appid":"wxREDACTED00000000","autoRedirect":false}]')
+for (var i = 0; i < wwClients.length; i++) {
+    var client = wwClients[i]
+    config.wechatWork[client.clientName] = {
+        appid: client.appid,
+        agentid: client.agentid,
+        redirectUrl: client.redirectUrl,
+        autoRedirect: client.autoRedirect
+    }
+}
+
+// 短信验证码登录
+config.tokenLogin = {
+    enabled: true
+};
+
+config.mobileCampus = {
+    baseHost: 'app.example.edu.cn',
+    security: true,
+    baseUrl: 'https://app.example.edu.cn',
+    appid: '0000000000000000',
+    title: '移动校园',
+    autoRedirect: false
+};
+</script>
+</body>
+</html>

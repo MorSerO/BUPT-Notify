@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<!--
+  Sanitised fixture: the content of the CAS login iframe
+  (/authserver/cas/login-normal.html).
+
+  Captured from the live portal on 2026-09-25 and then REDACTED: the login QR
+  payload, the obfuscated anti-bot JavaScript and the inline banner images were
+  removed. What remains is the login contract the tests assert:
+
+    - #username / #password / #cptValue fields
+    - loginPassword() gathers them and calls
+      parent.doLogin(user, pass, 'username_password'[, captcha])
+    - the captcha is only required when config.captcha is truthy
+
+  Do NOT paste real portal HTML back in here.
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>统一身份认证</title>
+<link rel="stylesheet" href="./index-normal.css">
+<link rel="stylesheet" href="./login.css">
+</head>
+<body style="background-color: grey;">
+  <div class="banner auto" id="banner">
+    <ul><li style="background-image:url(/banner/REDACTED)"></li></ul>
+    <ol><li class="active"></li></ol>
+  </div>
+
+  <div class="header auto">
+    <div class="logo fl">
+      <img src="./logo-full.png" alt=""><span i18n="systemname">统一身份认证</span>
+    </div>
+  </div>
+
+  <div class="sidebar auto">
+    <div class="sidebar-con auto">
+      <div class="content auto">
+        <div class="content-title auto" id="content-title">
+          <a href="javascript:;" class="" i18n="login.type.qrcode">扫码登录</a>
+          <a href="javascript:;" i18n="login.type.password" class="active">密码登录</a>
+          <a href="javascript:;" i18n="login.type.carsi" style="display: none;">CARSI登录</a>
+        </div>
+        <div class="title auto">
+          <span id="systemdesc"></span>
+        </div>
+
+        <div class="content-con auto" id="content-con">
+          <div class="content-con-box auto" style="display: none;">
+            <div class="qrcode auto" id="codeQR_PIC" title="REDACTED-QR-PAYLOAD">
+              <canvas width="200" height="200" style="display: none;"></canvas>
+              <img alt="Scan me!" src="./qrcode-placeholder.png">
+            </div>
+            <input type="button" class="refresh-btn default-bgcolor" onclick="initQR()" value="请点击刷新" i18n="login.form.btn.refresh">
+          </div>
+
+          <div class="content-con-box auto">
+            <div class="form-group">
+              <input type="text" placeholder="请输入学工号" i18n="login.form.schoolid.placeholder" id="username">
+            </div>
+            <div class="form-group">
+              <input type="password" placeholder="请输入密码" i18n="login.form.password.placeholder" id="password">
+            </div>
+            <div class="form-group" id="captchaParent" style="display: none;">
+              <input type="text" placeholder="请输入验证码" i18n="login.form.captcha.placeholder" id="cptValue">
+            </div>
+            <div class="form-group">
+              <input type="button" class="submit-btn default-bgcolor" value="登录" i18n="login.form.btn.login" onclick="loginPassword()">
+            </div>
+            <div class="error" id="errorMessage"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script type="text/javascript">
+function loginPassword() {
+    var username = $("#username").val();
+    var password = $("#password").val();
+    localStorage.loginTypeUsername = 'password'
+    if (config.captcha) {
+        var captcha = $("#cptValue").val();
+        if (username && password && captcha && username.trim() && password.trim() && captcha.trim()) {
+            parent.doLogin(username.trim(), password.trim(), 'username_password', captcha.trim().toLocaleLowerCase());
+        }
+    } else {
+        if (username && password && username.trim() && password.trim()) {
+            parent.doLogin(username.trim(), password.trim(), 'username_password');
+        }
+    }
+}
+
+function loginSmsToken() {
+    var username = $("#unSmsToken").val();
+    var password = $("#pwSmsToken").val();
+    localStorage.loginTypeUsername = 'smsToken'
+    localStorage.username = username
+    if (config.captcha) {
+        parent.doLogin(username.trim(), password.trim(), 'username_smsToken', $("#cptSmsToken").val());
+    } else {
+        parent.doLogin(username.trim(), password.trim(), 'username_smsToken');
+    }
+}
+
+// 回车登录
+$('#username,#password,#cptValue').on('keyup', function (e) {
+    if (e.keyCode === 13) {
+        loginPassword();
+    }
+});
+</script>
+</body>
+</html>

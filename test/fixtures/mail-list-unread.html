@@ -1,0 +1,72 @@
+<!--
+  test/fixtures/mail-list-unread.html
+
+  Shape of a Coremail `mail_list` page as returned for
+  /cgi-bin/mail_list?...&flag=new  (the unread filter).
+
+  NOT a saved copy of a real page: every message, address and id below is
+  invented. The structure is what matters, and it is the structure that broke
+  the first parser attempt:
+
+    * `<input name="mailid" type="hidden" value="">` form helpers appear BEFORE
+      the real rows. Matching `name="mailid"` catches them and reports phantom
+      messages, so the parser must require a non-hidden input with a real id.
+    * Subjects live in `<u role="link">`, the preview snippet in `<b class="no">`.
+    * The received time is in the `totime` attribute (epoch ms), not in the
+      「9月24日」 text.
+  -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head><body>
+<form id="frmSort" name="frmSort" method="get" action="/cgi-bin/mail_list?sid=FIXTURE-SID,0" target="mainFrame" style="margin:0;padding:0">
+<input type="hidden" name="sid" value="FIXTURE-SID,0" >
+<input type="hidden" name="s" value="">
+<input type="hidden" name="page" value=0>
+</form>
+<form id="star_frm" name="star_frm" method="post" target="actionFrame" action="/cgi-bin/mail_mgr?sid=FIXTURE-SID,0" >
+<input name="mailid" type="hidden" value="" />
+<input name="status" type="hidden" value="false" />
+<input name="flag" type="hidden" value="star" />
+</form>
+<div class="txt_title"><div class="somail" id="somail"></div>
+收件箱<span id="_ut" class="f_size normal black">(共 <span id="_ut_c">2</span> 封<span id="_ua" >，其中 <span id="_ur"><a href="/cgi-bin/mail_list?sid=FIXTURE-SID,0&amp;s=unread&amp;folderid=1&amp;flag=new&amp;page=0&amp;topmails=0" class="green">未读邮件</a> <span id="_ur_c">2</span> 封</span></span>)</div>
+<a class="bd talk cur_default"><label for="showThusday"><b>星期四</b> (<span class="newfd underline">2 封</span></label>)</a>
+<div class="toarea"><table cellspacing="0" class="i M"><tbody><tr>
+<td class="cx"><input totime="1758600000000" type="checkbox" unread="true" fn="图书馆" fa="library@bupt.edu.cn" sh="" bsm="false" name="mailid" value="ZC0001-FIXTUREAAA" colid="0" preload="" init="true"></td>
+<td class="ci"><div class="ciz unread">&nbsp;</div><div class="cir  Rr ">&nbsp;</div></td>
+<td class="fg" title="标记星标"><div></div></td>
+<td class="l"><table cellspacing="0" class="i"><tbody><tr>
+  <td class="tl tf" title="library@bupt.edu.cn"><nobr>图书馆&nbsp;</nobr></td>
+  <td class="fg_n "><div></div></td>
+  <td class="gt tf"><div class="txt_hidden"><u role="link" tabindex="0" class="black ">关于国庆节期间图书馆开放时间的通知</u><b class="no ">&nbsp;-&nbsp;请各位读者注意开放时间调整&nbsp;</b>&nbsp;</div><div class="TagDiv"></div></td>
+  <td class="dt"><div>9月23日&nbsp;</div></td>
+  <td width="1px"></td>
+</tr></tbody></table></td>
+</tr></tbody></table>
+<table cellspacing="0" class="i M"><tbody><tr>
+<td class="cx"><input totime="1758513600000" type="checkbox" unread="true" fn="教务处" fa="jwc@bupt.edu.cn" sh="" bsm="false" name="mailid" value="ZC0002-FIXTUREBBB" colid="0" preload="" init="true"></td>
+<td class="ci"><div class="ciz unread">&nbsp;</div><div class="cir  Rr ">&nbsp;</div></td>
+<td class="fg" title="标记星标"><div></div></td>
+<td class="l"><table cellspacing="0" class="i"><tbody><tr>
+  <td class="tl tf" title="jwc@bupt.edu.cn"><nobr>教务处&nbsp;</nobr></td>
+  <td class="fg_n "><div></div></td>
+  <td class="gt tf"><div class="txt_hidden"><u role="link" tabindex="0" class="black ">2026-2027 学年第一学期选课通知</u><b class="no ">&nbsp;-&nbsp;第一轮选课将于下周一开始&nbsp;</b>&nbsp;</div><div class="TagDiv"></div></td>
+  <td class="dt"><div>9月22日&nbsp;</div></td>
+  <td width="1px"></td>
+</tr></tbody></table></td>
+</tr></tbody></table>
+<!-- A read message: only reachable when the filter is NOT applied. The parser
+     must respect unread="false" in that case rather than assuming every row is
+     unread. -->
+<table cellspacing="0" class="i M"><tbody><tr>
+<td class="cx"><input totime="1758427200000" type="checkbox" unread="false" fn="邮件助手" fa="10000@exmail.example.com" sh="" bsm="false" name="mailid" value="ZC0003-FIXTURECCC" colid="0" preload="" init="true"></td>
+<td class="ci"><div class="ciz ">&nbsp;</div><div class="cir  Rr ">&nbsp;</div></td>
+<td class="fg" title="标记星标"><div></div></td>
+<td class="l"><table cellspacing="0" class="i"><tbody><tr>
+  <td class="tl tf" title="10000@exmail.example.com"><nobr>邮件助手&nbsp;</nobr></td>
+  <td class="fg_n "><div></div></td>
+  <td class="gt tf"><div class="txt_hidden"><u role="link" tabindex="0" class="black ">邮箱登录提醒</u><b class="no ">&nbsp;-&nbsp;你的账号刚刚登录&nbsp;</b>&nbsp;</div><div class="TagDiv"></div></td>
+  <td class="dt"><div>9月21日&nbsp;</div></td>
+  <td width="1px"></td>
+</tr></tbody></table></td>
+</tr></tbody></table>
+</div>
+</body></html>
