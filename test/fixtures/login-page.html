@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<!--
+  Fixture: a CAS unified-authentication login interstitial, as served when the
+  portal session has expired. Used to test looksLikeLoginPage().
+-->
+<html>
+<head><title>统一身份认证平台</title></head>
+<body>
+<div id="loginForm">
+  <form method="post" action="/cas/login?service=http%3A%2F%2Fmy.bupt.edu.cn%2F">
+    <input type="hidden" name="execution" value="e1s1" />
+    <input type="hidden" name="_eventId" value="submit" />
+    <label>用户名</label><input id="username" name="username" />
+    <label>密码</label><input id="password" name="password" type="password" />
+    <button type="submit">登录</button>
+  </form>
+</div>
+</body>
+</html>

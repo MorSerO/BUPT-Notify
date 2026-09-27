@@ -1,0 +1,36 @@
+{
+  "name": "bupt-notify",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BUPT 校内通知/校内文件 自动转发助手：开机自启、校园网/VPN 检测、10 天窗口去重、邮件转发",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js --serve",
+    "ui": "node src/main.js --ui",
+    "setup": "node src/setup.js",
+    "once": "node src/main.js --once",
+    "once-quiet": "node src/main.js --once --quiet",
+    "check": "node src/main.js --check",
+    "parse": "node src/main.js --parse-fixture",
+    "test": "node --test --test-isolation=none \"test/*.test.mjs\"",
+    "smoke": "node tools/smoke.mjs",
+    "verify": "npm test && npm run smoke",
+    "doctor": "node src/main.js --doctor",
+    "lint": "node tools/lint.mjs && node tools/check-tracked.mjs && node tools/fix-bom.mjs",
+    "install-app": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-deps.ps1",
+    "shortcut": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/create-shortcut.ps1",
+    "reset-autologin": "node tools/reset-backoff.mjs",
+    "autostart": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-autostart.ps1",
+    "unautostart": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/uninstall-autostart.ps1",
+    "task-status": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/task-status.ps1"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "nodemailer": "^6.9.16",
+    "playwright-core": "^1.49.0"
+  }
+}

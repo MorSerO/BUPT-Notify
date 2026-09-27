@@ -1,0 +1,26 @@
+<!--
+  test/fixtures/list-pagination.html
+
+  The paging block as the portal really emits it, copied in shape from the live
+  page (no article content, no identifiers):
+
+      ?totalpage=18&PAGENUM=2&urltype=tree.TreeTempUrl&wbtreeid=2001
+
+  Why this fixture exists: the older fixture used an invented `&pagenum=2`, which
+  the parser handled — while the real parameter sits right after `totalpage=18`,
+  and an unanchored `page` pattern matched inside `totalpage`. Every run then
+  read only page 1 of each column and 「只看最近多少天」 could never reach older
+  content. Tests built on invented markup cannot catch that.
+  -->
+<div class="pagedown">
+  <a href="?totalpage=18&PAGENUM=2&urltype=tree.TreeTempUrl&wbtreeid=2001">下一页</a>
+  <a href="?totalpage=18&PAGENUM=3&urltype=tree.TreeTempUrl&wbtreeid=2001">3</a>
+  <a href="?totalpage=18&PAGENUM=4&urltype=tree.TreeTempUrl&wbtreeid=2001">4</a>
+  <a href="?totalpage=18&PAGENUM=5&urltype=tree.TreeTempUrl&wbtreeid=2001">5</a>
+  <a href="?totalpage=18&PAGENUM=18&urltype=tree.TreeTempUrl&wbtreeid=2001">末页</a>
+  <!-- a different column must be ignored -->
+  <a href="?totalpage=1602&PAGENUM=2&urltype=tree.TreeTempUrl&wbtreeid=1154">别的栏目下一页</a>
+  <!-- current page link (no page number, or page 1) is not a pagination target -->
+  <a href="?totalpage=18&PAGENUM=1&urltype=tree.TreeTempUrl&wbtreeid=2001">1</a>
+  <a href="/system/resource/css/pagedown/sys.css">样式</a>
+</div>

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<!--
+  Fixture for parser tests.
+  Markup copied from the real saved portal page
+  (学生首页-欢迎访问信息服务门户.html, captured 2026-09-25) so the tests exercise
+  the actual VSB templates: the "toutiao" headline card, the plain list item, the
+  Chinese month/day arcdate variant, and an item with no date at all.
+-->
+<html>
+<head><title>校内通知</title></head>
+<body>
+<div class="tabinfo">
+  <ul class="listnotice listnoticescd list-unstyled">
+    <dl>
+      <!-- 1. Headline card: hidden anchor carries the ISO date, the visible card
+              repeats the title and shows the arcdate block. Must dedup to ONE item. -->
+      <dd style="background: none;">
+        <a href="http://my.bupt.edu.cn/content.jsp?urltype=news.NewsContentUrl&amp;wbtreeid=1154&amp;wbnewsid=142501" target="_blank" style="display: none;;">
+          关于2026年国庆节放假安排的通知
+          <span>2026-09-25</span>
+        </a>
+        <div class="toutiao clearfix" style="display: block;">
+          <a href="http://my.bupt.edu.cn/content.jsp?urltype=news.NewsContentUrl&amp;wbtreeid=1154&amp;wbnewsid=142501" target="_blank">
+            <div class="arcdate ">
+              <span> 09月</span>
+              <strong>25</strong>
+            </div>
+          </a>
+          <div class="toutiaoinfo">
+            <div class="toutiaotitle">
+              <a href="http://my.bupt.edu.cn/content.jsp?urltype=news.NewsContentUrl&amp;wbtreeid=1154&amp;wbnewsid=142501" target="_blank" style="">
+                关于2026年国庆节放假安排的通知
+              </a>
+            </div>
+            <a href="http://my.bupt.edu.cn/content.jsp?urltype=news.NewsContentUrl&amp;wbtreeid=1154&amp;wbnewsid=142501" target="_blank">
+              <p>根据国务院办公厅通知精神，现将我校2026年国庆节放假安排通知如下...</p>
+            </a>
+          </div>
+        </div>
+      </dd>
+
+      <!-- 2. Plain item with ISO date span. -->
+      <dd style="background: url(images/sprite.png) 10px -980px no-repeat scroll rgba(0, 0, 0, 0);">
+        <a href="http://my.bupt.edu.cn/content.jsp?urltype=news.NewsContentUrl&amp;wbtreeid=1154&amp;wbnewsid=142488" target="_blank" style="display: inline;;">
+          关于做好2026年秋季学期本科生学籍处理工作的通知
+          <span>2026-09-24</span>
+        </a>
+        <div class="toutiao clearfix" style="display: none;">
+          <a href="http://my.bupt.edu.cn/content.jsp?urltype=news.NewsContentUrl&amp;wbtreeid=1154&amp;wbnewsid=142488" target="_blank">
+            <div class="arcdate ">
+              <span> 09月</span>
+              <strong>24</strong>
+            </div>
+          </a>
+          <div class="toutiaoinfo">
+            <div class="toutiaotitle">
+              <a href="http://my.bupt.edu.cn/content.jsp?urltype=news.NewsContentUrl&amp;wbtreeid=1154&amp;wbnewsid=142488" target="_blank" style="">
+                关于做好2026年秋季学期本科生学籍处理工作的通知
+              </a>
+            </div>
+          </div>
+        </div>
+      </dd>
+
+      <!-- 3. An item well outside the 10-day window. -->
+      <dd>
+        <a href="http://my.bupt.edu.cn/content.jsp?urltype=news.NewsContentUrl&amp;wbtreeid=1154&amp;wbnewsid=136000" target="_blank">
+          关于2025年度考核工作的通知
+          <span>2025-12-01</span>
+        </a>
+      </dd>
+
+      <!-- 4. A different column's item on the same page: must be filtered by treeId. -->
+      <dd>
+        <a href="http://my.bupt.edu.cn/content.jsp?urltype=news.NewsContentUrl&amp;wbtreeid=2001&amp;wbnewsid=142490" target="_blank">
+          关于印发《北京邮电大学科研经费管理办法》的通知
+          <span>2026-09-23</span>
+        </a>
+      </dd>
+    </dl>
+  </ul>
+
+  <!-- 5. Year-less MM-DD template (lecture/event list). -->
+  <ul class="listnotice">
+    <dd>
+      <a href="http://my.bupt.edu.cn/hy_content.jsp?urltype=news.NewsContentUrl&amp;wbtreeid=1154&amp;wbnewsid=142480" target="_blank" class="timetitle" style="">信息与通信工程学院学术报告会</a>
+      <div class="timeinfobox">
+        <div class="timedate brownstyle">
+          <div class="timedateup">
+            09-18
+          </div>
+          <div class="timedatedown">
+            18:03
+          </div>
+        </div>
+        主讲人 <span>某教授</span><br>
+        地&nbsp;&nbsp;&nbsp;点 <span> 教四楼337会议室</span>
+      </div>
+    </dd>
+
+    <!-- 6. No date anywhere: exercises the "unknown date" path. -->
+    <dd>
+      <a href="http://my.bupt.edu.cn/content.jsp?urltype=news.NewsContentUrl&amp;wbtreeid=1154&amp;wbnewsid=142000" target="_blank">关于开展校园安全专项检查的通知</a>
+    </dd>
+  </ul>
+
+  <!-- Pagination links, for extractPaginationLinks. -->
+  <div class="pagination">
+    <a href="http://my.bupt.edu.cn/list.jsp?urltype=tree.TreeTempUrl&amp;wbtreeid=1154&amp;pagenum=2">下一页</a>
+    <a href="http://my.bupt.edu.cn/list.jsp?urltype=tree.TreeTempUrl&amp;wbtreeid=1154&amp;pagenum=3">3</a>
+    <a href="http://my.bupt.edu.cn/list.jsp?urltype=tree.TreeTempUrl&amp;wbtreeid=2001&amp;pagenum=2">别的栏目下一页</a>
+  </div>
+</div>
+</body>
+</html>
