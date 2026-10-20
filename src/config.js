@@ -200,6 +200,21 @@ export const DEFAULT_CONFIG = {
     maxMails: 20,
   },
 
+  /**
+   * Weather block riding along with every forwarded mail: current conditions,
+   * today/tomorrow forecasts and change alerts (降温/大降温/降雨/降雪/大风).
+   * Data comes from Open-Meteo (no API key needed) and failures are warnings
+   * only — see src/weather.js.
+   */
+  weather: {
+    enabled: true,
+    /** Display name used in the digest. */
+    city: '北京',
+    /** BUPT 西土城校区；换成自己所在位置的经纬度即可。 */
+    latitude: 39.96,
+    longitude: 116.36,
+  },
+
   log: { level: 'info', file: true, console: true },
 
 };
@@ -327,6 +342,12 @@ export function toPersistedConfig(cfg) {
       mailBase: cfg.portal?.mailBase || DEFAULT_CONFIG.portal.mailBase,
       mailFolderId: Number(cfg.portal?.mailFolderId) || 1,
       maxMails: Number(cfg.portal?.maxMails) || 20,
+    },
+    weather: {
+      enabled: cfg.weather?.enabled !== false,
+      city: cfg.weather?.city || DEFAULT_CONFIG.weather.city,
+      latitude: Number(cfg.weather?.latitude ?? DEFAULT_CONFIG.weather.latitude),
+      longitude: Number(cfg.weather?.longitude ?? DEFAULT_CONFIG.weather.longitude),
     },
     log: {
       level: cfg.log?.level,

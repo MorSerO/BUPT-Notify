@@ -11,9 +11,12 @@
  */
 
 import nodemailer from 'nodemailer';
+import dns from 'node:dns';
+import net from 'node:net';
 import { log } from './logger.js';
 import { todayLocal } from './util.js';
 import { describeStatus } from './portal.js';
+import { summarizeWeather } from './weather.js';
 
 export function createTransport(emailCfg) {
   return nodemailer.createTransport({
@@ -21,10 +24,45 @@ export function createTransport(emailCfg) {
     port: emailCfg.port,
     secure: emailCfg.secure,
     auth: { user: emailCfg.user, pass: emailCfg.pass },
+    ...(emailCfg.servername ? { servername: emailCfg.servername } : {}),
+    ...(emailCfg.tls ? { tls: emailCfg.tls } : {}),
     connectionTimeout: 20000,
     greetingTimeout: 20000,
     socketTimeout: 30000,
   });
+}
+
+/**
+ * Resolve the SMTP host through the OS resolver before connecting.
+ *
+ * nodemailer resolves hosts with c-ares (dns.resolve4), which sends raw UDP
+ * queries to the configured DNS server. Some VPN clients (aTrust) poison DNS
+ * with fake IPs (198.18.x.x) and only answer through the SYSTEM resolver —
+ * c-ares queries just time out (`queryA ETIMEOUT smtp.qq.com`) and no mail can
+ * ever be sent while the VPN client is installed.
+ *
+ * dns.lookup goes through the OS like every browser does, so it works in both
+ * worlds. The original hostname is kept as the TLS servername, so SNI routing
+ * (which is how the fake-IP gateway knows where to connect) and certificate
+ * validation are unaffected.
+ */
+async function createResolvedTransport(emailCfg) {
+  const host = emailCfg?.host;
+  if (!host || net.isIP(host)) return createTransport(emailCfg);
+  try {
+    const { address } = await dns.promises.lookup(host, { family: 4 });
+    if (!address || address === host) return createTransport(emailCfg);
+    log.debug(`SMTP 主机 ${host} 经系统 DNS 解析为 ${address}`);
+    return createTransport({
+      ...emailCfg,
+      host: address,
+      servername: host,
+      tls: { ...(emailCfg.tls || {}), servername: host },
+    });
+  } catch (err) {
+    log.debug(`SMTP 主机 ${host} 系统 DNS 解析失败，按原样连接: ${err.message}`);
+    return createTransport(emailCfg);
+  }
 }
 
 function esc(s) {
@@ -47,13 +85,39 @@ function groupBySource(items) {
 }
 
 /**
+ * Build the weather block (plain-text lines + an HTML box), shared by the
+ * digest mail and the "nothing new" mail. Returns null when there is no
+ * usable weather read.
+ */
+function weatherBlock(weather) {
+  const sum = summarizeWeather(weather);
+  if (!sum) return null;
+  const alerts = sum.alerts || [];
+  // 现在 / 今天 / 明天 各占一行，提醒再单独成行。
+  const text = [
+    ...sum.lines.map((l, i) => (i === 0 ? `【天气】${l}` : `   ${l}`)),
+    ...alerts.map((a) => `⚠️ ${a}`),
+  ];
+  const html = [
+    `<div style="margin:0 0 14px;padding:10px 12px;background:#f0f9ff;border-left:3px solid #0284c7;border-radius:2px;font-size:13px;line-height:1.9;color:#333">`,
+    ...sum.lines.map((l) => `<div>${esc(l)}</div>`),
+    ...alerts.map(
+      (a) => `<div style="color:#b45309;font-weight:600">⚠️ ${esc(a)}</div>`,
+    ),
+    `</div>`,
+  ].join('');
+  return { text, html };
+}
+
+/**
  * Build a concise subject/text/html for a batch of new items.
  *
  * Two kinds of content can ride along: portal notices/files (`items`) and unread
  * mail subjects (`mails`). The 待办中心 status line (校园卡余额 / 未读邮件数) is
- * always included when it could be read.
+ * always included when it could be read, and so is the weather block (current +
+ * tomorrow + change alerts) when enabled.
  */
-export function composeMail(items, cfg, { now = new Date(), status = null, mails = [] } = {}) {
+export function composeMail(items, cfg, { now = new Date(), status = null, mails = [], weather = null } = {}) {
   const prefix = cfg.email?.subjectPrefix || '[北邮通知]';
   const day = todayLocal(now);
   const stamp = now.toLocaleString('zh-CN', {
@@ -76,12 +140,14 @@ export function composeMail(items, cfg, { now = new Date(), status = null, mails
   const wantSource = cfg.output?.includeSource !== false;
 
   const statusLine = describeStatus(status);
+  const wBlock = weatherBlock(weather);
 
   /* ------------------------------ plain text ------------------------------ */
   const txt = [
     `北邮校内门户新增内容 — 抓取于 ${stamp}`,
     `共 ${total} 条${mails.length ? `（其中未读邮件 ${mails.length} 封）` : ''}`,
     ...(statusLine ? ['', statusLine] : []),
+    ...(wBlock ? ['', ...wBlock.text] : []),
     '',
   ];
 
@@ -130,6 +196,7 @@ export function composeMail(items, cfg, { now = new Date(), status = null, mails
   } else {
     h.push('<div style="height:8px"></div>');
   }
+  if (wBlock) h.push(wBlock.html);
 
   if (mails.length) {
     const boxUrl = cfg.portal?.mailBase || 'https://mail.bupt.edu.cn';
@@ -187,7 +254,7 @@ export function composeMail(items, cfg, { now = new Date(), status = null, mails
  * Send one notification email covering all new items.
  * @returns {Promise<{ok:boolean, messageId?:string, error?:string, skipped?:boolean, accepted?:string[]}>}
  */
-export async function sendNotification(items, cfg, { now = new Date(), status = null, mails = [] } = {}) {
+export async function sendNotification(items, cfg, { now = new Date(), status = null, mails = [], weather = null } = {}) {
   if (!items.length && !mails.length) return { ok: true, skipped: true };
   if (!cfg.email?.enabled) {
     log.warn(`邮件发送已禁用，跳过 ${items.length + mails.length} 条。`);
@@ -199,8 +266,8 @@ export async function sendNotification(items, cfg, { now = new Date(), status = 
     return { ok: false, error: msg };
   }
 
-  const { subject, text, html } = composeMail(items, cfg, { now, status, mails });
-  const transport = createTransport(cfg.email);
+  const { subject, text, html } = composeMail(items, cfg, { now, status, mails, weather });
+  const transport = await createResolvedTransport(cfg.email);
   const from = cfg.email.from || cfg.email.user;
 
   try {
@@ -230,7 +297,7 @@ export async function sendNotification(items, cfg, { now = new Date(), status = 
  * these are read anyway — 校园卡余额 / 未读邮件数, so even a quiet check still
  * tells the user the two numbers they asked to see.
  */
-export function composeEmptyMail(cfg, { now = new Date(), nextRunAt = null, stats = null, status = null } = {}) {
+export function composeEmptyMail(cfg, { now = new Date(), nextRunAt = null, stats = null, status = null, weather = null } = {}) {
   const prefix = cfg.email?.subjectPrefix || '[北邮通知]';
   const day = todayLocal(now);
   const stamp = now.toLocaleString('zh-CN', {
@@ -254,6 +321,7 @@ export function composeEmptyMail(cfg, { now = new Date(), nextRunAt = null, stat
 
   // The status line is the one piece of *content* a quiet check can carry.
   const statusLine = describeStatus(status);
+  const wBlock = weatherBlock(weather);
   const statusText = status && status.unreadMail !== null && status.unreadMail !== undefined
     ? `未读邮件数来自门户待办中心，标题转发${cfg.portal?.mailbox === false ? '已关闭' : '本次没有新增'}。`
     : '';
@@ -262,6 +330,7 @@ export function composeEmptyMail(cfg, { now = new Date(), nextRunAt = null, stat
     '北邮校内通知 / 校内文件 —— 本次检查没有新内容。',
     '',
     ...(statusLine ? [statusLine, ''] : []),
+    ...(wBlock ? [...wBlock.text, ''] : []),
     ...detail,
     '',
     '这条邮件说明程序正常运行，只是暂时没有需要转发的新通知。',
@@ -279,6 +348,7 @@ export function composeEmptyMail(cfg, { now = new Date(), nextRunAt = null, stat
           )}</p>`,
         ]
       : []),
+    ...(wBlock ? [wBlock.html] : []),
     `<div style="color:#666;line-height:1.8;font-size:13px">${detail.map((d) => esc(d)).join('<br>')}</div>`,
     `<p style="color:#999;font-size:12px;margin-top:18px">这条邮件说明程序正常运行，只是暂时没有需要转发的新通知。<br>${
       statusText ? `${esc(statusText)}<br>` : ''
@@ -291,15 +361,15 @@ export function composeEmptyMail(cfg, { now = new Date(), nextRunAt = null, stat
 }
 
 /** Send the "nothing new" notice. */
-export async function sendEmptyNotification(cfg, { now = new Date(), nextRunAt = null, stats = null, status = null } = {}) {
+export async function sendEmptyNotification(cfg, { now = new Date(), nextRunAt = null, stats = null, status = null, weather = null } = {}) {
   if (!cfg.email?.enabled) return { ok: true, skipped: true };
   if (!cfg.email.pass) {
     const msg = '未配置 QQ 邮箱授权码，无法发信。请运行 "npm run setup" 填写。';
     log.error(msg);
     return { ok: false, error: msg };
   }
-  const { subject, text, html } = composeEmptyMail(cfg, { now, nextRunAt, stats, status });
-  const transport = createTransport(cfg.email);
+  const { subject, text, html } = composeEmptyMail(cfg, { now, nextRunAt, stats, status, weather });
+  const transport = await createResolvedTransport(cfg.email);
   const from = cfg.email.from || cfg.email.user;
   try {
     const info = await transport.sendMail({
@@ -330,7 +400,7 @@ export async function sendTestMail(cfg) {
     newsId: 'test',
     treeId: 'test',
   };
-  const transport = createTransport(cfg.email);
+  const transport = await createResolvedTransport(cfg.email);
   const from = cfg.email.from || cfg.email.user;
   const { subject, text, html } = composeMail([probe], cfg, { now });
   try {
@@ -351,7 +421,7 @@ export async function sendTestMail(cfg) {
 
 /** Verify SMTP credentials without sending anything. */
 export async function verifyTransport(emailCfg) {
-  const transport = createTransport(emailCfg);
+  const transport = await createResolvedTransport(emailCfg);
   try {
     await transport.verify();
     return { ok: true };

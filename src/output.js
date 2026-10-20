@@ -13,6 +13,7 @@ import { log } from './logger.js';
 import { ensureDir, todayLocal } from './util.js';
 import { sendNotification } from './mailer.js';
 import { describeStatus } from './portal.js';
+import { summarizeWeather } from './weather.js';
 
 /** Format one line for the local digest (Markdown). */
 export function formatLocalLine(item, cfg, capturedAt) {
@@ -57,7 +58,7 @@ export function formatMailLine(mail, cfg, capturedAt) {
  *
  * @returns {{ok:boolean, file:string, appended:number, error?:string}}
  */
-export function writeLocalDigest(items, cfg, { now = new Date(), status = null, mails = [] } = {}) {
+export function writeLocalDigest(items, cfg, { now = new Date(), status = null, mails = [], weather = null } = {}) {
   if (!items.length && !mails.length) return { ok: true, file: null, appended: 0 };
   const dir = cfg.output?.localDir || path.join(process.cwd(), 'output');
 
@@ -100,6 +101,14 @@ export function writeLocalDigest(items, cfg, { now = new Date(), status = null, 
     '',
   );
   if (statusLine) lines.push(`> ${statusLine}`, '');
+  const wSum = summarizeWeather(weather);
+  if (wSum) {
+    lines.push(
+      ...wSum.lines.map((l, i) => `> ${i === 0 ? `天气：${l}` : l}`),
+      ...wSum.alerts.map((a) => `> ⚠️ ${a}`),
+      '',
+    );
+  }
 
   if (mails.length) {
     lines.push('### 未读邮件', '');
@@ -131,7 +140,7 @@ export function writeLocalDigest(items, cfg, { now = new Date(), status = null, 
  *
  * @returns {Promise<{ok:boolean, local:object|null, email:object|null, error?:string}>}
  */
-export async function deliver(items, cfg, { now = new Date(), status = null, mails = [] } = {}) {
+export async function deliver(items, cfg, { now = new Date(), status = null, mails = [], weather = null } = {}) {
   const mode = cfg.output?.mode || 'local';
   const wantLocal = mode === 'local' || mode === 'both';
   const wantMail = mode === 'email' || mode === 'both' || cfg.email?.enabled;
@@ -139,7 +148,7 @@ export async function deliver(items, cfg, { now = new Date(), status = null, mai
   const result = { ok: true, local: null, email: null, error: null };
 
   if (wantLocal) {
-    result.local = writeLocalDigest(items, cfg, { now, status, mails });
+    result.local = writeLocalDigest(items, cfg, { now, status, mails, weather });
     if (!result.local.ok) {
       result.ok = false;
       result.error = `本地写入失败: ${result.local.error}`;
@@ -147,7 +156,7 @@ export async function deliver(items, cfg, { now = new Date(), status = null, mai
   }
 
   if (wantMail) {
-    result.email = await sendNotification(items, cfg, { now, status, mails });
+    result.email = await sendNotification(items, cfg, { now, status, mails, weather });
     if (!result.email.ok && !result.email.skipped) {
       result.ok = false;
       result.error = result.error || `邮件失败: ${result.email.error}`;

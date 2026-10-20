@@ -17,6 +17,7 @@ import { collectAll, collectExtras, derivePageBudget } from './collector.js';
 import { deliver, describeOutput } from './output.js';
 import { sendEmptyNotification } from './mailer.js';
 import { DEFAULT_MAIL_BASE } from './mailbox.js';
+import { summarizeWeather } from './weather.js';
 import { ensureNetwork } from './net.js';
 import { loadCredentials, hasStoredCredentials, storedUsername } from './secrets.js';
 import { saveConfig, MIN_INTERVAL_MINUTES, MAX_INTERVAL_MINUTES } from './config.js';
@@ -321,6 +322,9 @@ export class App extends EventEmitter {
       portalStatusEnabled: this.cfg.portal?.status !== false,
       mailboxEnabled: this.cfg.portal?.mailbox !== false,
       mailboxUrl: this.cfg.portal?.mailBase || DEFAULT_MAIL_BASE,
+      weather: this.store.getMeta('lastWeather', null),
+      weatherEnabled: this.cfg.weather?.enabled !== false,
+      weatherCity: this.cfg.weather?.city || '北京',
     };
   }
 
@@ -450,6 +454,14 @@ export class App extends EventEmitter {
       if (!dryRun) this.store.setMeta('lastStatus', extras.status);
       if (extras.status?.ok && extras.status.error) this.pushEvent('warn', extras.status.error);
 
+      const weather = extras.weather;
+      if (!dryRun && weather) this.store.setMeta('lastWeather', weather);
+      const weatherSummary = summarizeWeather(weather);
+      if (weatherSummary) {
+        this.pushEvent('info', `天气：${weatherSummary.line}`);
+        for (const a of weatherSummary.alerts) this.pushEvent('warn', `天气提醒：${a}`);
+      }
+
       const mails = extras.mails;
       if (mails.length) {
         this.pushEvent('info', `发现 ${mails.length} 封新的未读邮件`);
@@ -463,7 +475,7 @@ export class App extends EventEmitter {
         this.pushEvent('info', '没有需要转发的新内容');
         // `--dry-run` promises 不投递、不记录: do not prune, do not send.
         if (!dryRun) this.store.prune({ windowDays: this.cfg.windowDays });
-        const empty = await this.maybeNotifyEmpty({ stats, status: extras.status, dryRun });
+        const empty = await this.maybeNotifyEmpty({ stats, status: extras.status, weather, dryRun });
         return this.#finish({
           at: new Date().toISOString(),
           ok: true,
@@ -511,6 +523,7 @@ export class App extends EventEmitter {
         now: new Date(),
         status: extras.status,
         mails,
+        weather,
       });
       if (sent.ok) {
         const now = new Date();
@@ -569,7 +582,7 @@ export class App extends EventEmitter {
    * `dryRun` suppresses it entirely: 「试运行（不发送）」 must not send anything,
    * and a quiet check with nothing new is exactly when this notice would fire.
    */
-  async maybeNotifyEmpty({ stats = null, status = null, dryRun = false } = {}) {
+  async maybeNotifyEmpty({ stats = null, status = null, weather = null, dryRun = false } = {}) {
     try {
       if (dryRun) {
         this.pushEvent('info', '[试运行] 不发「无新内容」提醒');
@@ -599,6 +612,7 @@ export class App extends EventEmitter {
         nextRunAt: this.nextRunAt,
         stats,
         status,
+        weather,
       });
       if (r.ok && !r.skipped) {
         this.store.setMeta('lastEmptyNotifyAt', new Date().toISOString());
@@ -916,6 +930,11 @@ export class App extends EventEmitter {
     if (patch.mailbox !== undefined) {
       this.cfg.portal.mailbox = Boolean(patch.mailbox);
       applied.push(`转发未读邮件标题 = ${this.cfg.portal.mailbox ? '开' : '关'}`);
+    }
+    if (patch.weatherEnabled !== undefined) {
+      this.cfg.weather = this.cfg.weather || {};
+      this.cfg.weather.enabled = Boolean(patch.weatherEnabled);
+      applied.push(`附带天气信息 = ${this.cfg.weather.enabled ? '开' : '关'}`);
     }
     if (patch.emailUser !== undefined) {
       const u = String(patch.emailUser).trim();

@@ -15,6 +15,7 @@ import { log } from './logger.js';
 import { parseListPage, extractPaginationLinks, classifyPage, PAGE } from './vsb.js';
 import { fetchPortalStatus } from './portal.js';
 import { fetchUnreadMails, mailToItem } from './mailbox.js';
+import { fetchWeather } from './weather.js';
 import { daysBetween, todayLocal, minusDays } from './util.js';
 import { cancellableSleep, isCancellation } from './cancel.js';
 
@@ -255,20 +256,22 @@ export async function collectAll(session, cfg, store, { now = new Date(), token 
 /**
  * Collect the extra facts that ride along with the digest:
  *
- *   - the 待办中心 widgets (校园卡余额 / 未读邮件数 / 借阅 / 欠款), and
- *   - the subjects of unread mail.
+ *   - the 待办中心 widgets (校园卡余额 / 未读邮件数 / 借阅 / 欠款),
+ *   - the subjects of unread mail, and
+ *   - the weather block (current + tomorrow + change alerts).
  *
- * Both are strictly optional: a failure here is recorded as a warning and never
+ * All are strictly optional: a failure here is recorded as a warning and never
  * fails the run, because losing the balance line must not cost the user the
  * notices they actually subscribed to.
  *
  * @returns {Promise<{status:object|null, mails:Array, unreadTotal:number|null,
- *                    stats:object, errors:string[]}>}
+ *                    weather:object|null, stats:object, errors:string[]}>}
  */
 export async function collectExtras(session, cfg, store, { now = new Date(), token } = {}) {
   const opts = cfg.portal || {};
   let status = null;
   let unreadTotal = null;
+  let weather = null;
   const errors = [];
   const mails = [];
 
@@ -303,9 +306,23 @@ export async function collectExtras(session, cfg, store, { now = new Date(), tok
     }
   }
 
+  // 3. Weather: current + today/tomorrow + change alerts. Public API, no login
+  // needed, and a failure only drops the weather block from the digest.
+  if (cfg.weather?.enabled !== false) {
+    try {
+      const w = await fetchWeather(cfg, { token });
+      if (!w.ok) errors.push(`天气: ${w.error}`);
+      else weather = w;
+    } catch (err) {
+      if (isCancellation(err, token)) throw err;
+      errors.push(`天气: ${err.message}`);
+    }
+  }
+
   return {
     status,
     mails,
+    weather,
     // The mail listing is the more trustworthy count; the widget is the fallback
     // (and the only source when unread-mail forwarding is switched off).
     unreadTotal: unreadTotal ?? status?.unreadMail ?? null,

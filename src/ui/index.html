@@ -179,6 +179,14 @@
          style="font-size:12px;color:var(--brand);text-decoration:none">打开校园邮箱 ↗</a>
     </div>
     <div class="note hidden" id="portalError"></div>
+
+    <!-- 天气：当前 + 今明预报 + 变化提醒（每次抓取时一并获取） -->
+    <div id="weatherStrip" class="portal-strip hidden">
+      <span class="badge" id="wNow">现在 —</span>
+      <span class="badge" id="wToday">今天 —</span>
+      <span class="badge" id="wTomorrow">明天 —</span>
+      <span class="badge warn hidden" id="wAlert" style="max-width:100%;white-space:normal;text-align:left"></span>
+    </div>
   </div>
 
   <div class="grid">
@@ -238,6 +246,15 @@
       </label>
       <div class="note" style="margin-top:-4px;margin-bottom:10px">
         这两项都走同一个登录会话，不需要额外密码；读取失败只会在日志里提示，不影响通知转发。
+      </div>
+
+      <label class="field" style="display:flex;gap:8px;align-items:center">
+        <input type="checkbox" id="weatherEnabled" style="width:auto" />
+        <span style="margin:0">附带天气（当前 + 今明预报 + 降温/降雨/降雪提醒）</span>
+      </label>
+      <div class="note" style="margin-top:-4px;margin-bottom:10px">
+        数据源为 Open-Meteo 公共接口，无需账号；默认定位北京（北邮西土城校区），
+        可在 config.json 的 weather 里改城市和经纬度。获取失败不影响通知转发。
       </div>
 
       <button class="primary" id="btnSaveSettings">保存设置</button>
@@ -457,12 +474,14 @@ function render(st) {
     $('emptyIntervalField').style.display = $('notifyWhenEmpty').checked ? '' : 'none';
     $('portalStatus').checked = st.portalStatusEnabled !== false;
     $('mailbox').checked = st.mailboxEnabled !== false;
+    $('weatherEnabled').checked = st.weatherEnabled !== false;
   }
   renderWindowHint(st);
   renderSchedulerState(st);
 
   // 待办中心 (校园卡余额 / 未读邮件数), read on every run
   renderPortal(st);
+  renderWeather(st);
 
   // credentials
   $('credState').innerHTML = st.hasCredentials
@@ -620,6 +639,48 @@ function renderPortal(st) {
   $('pMailLink').href = url;
 }
 
+/**
+ * 天气 strip: 现在 / 今天 / 明天 + 变化提醒（降温、降雨、降雪、大风…）。
+ *
+ * `weather` is the last read persisted by the app (same pattern as portalStatus),
+ * so the panel shows it even when the scheduled task — a separate process —
+ * did the run.
+ */
+function renderWeather(st) {
+  const w = st.weather;
+  const strip = $('weatherStrip');
+  if (st.weatherEnabled === false || !w || !w.ok || !w.current) {
+    strip.classList.add('hidden');
+    return;
+  }
+  strip.classList.remove('hidden');
+  const fmtT = (v) => (v === null || v === undefined ? '—' : `${Math.round(Number(v))}°C`);
+  const cur = w.current;
+  const curBits = [`${cur.icon || ''} ${w.city || ''} 现在 ${fmtT(cur.temp)} ${cur.text || ''}`];
+  if (cur.feelsLike !== null && cur.feelsLike !== undefined) curBits.push(`体感 ${fmtT(cur.feelsLike)}`);
+  if (cur.humidity !== null && cur.humidity !== undefined) curBits.push(`湿度 ${Math.round(cur.humidity)}%`);
+  if (cur.windSpeed !== null && cur.windSpeed !== undefined) curBits.push(`${cur.windDir || '风'}${cur.windSpeed.toFixed(1)}m/s`);
+  $('wNow').textContent = curBits.join(' ');
+  const fmtDay = (label, d) => {
+    if (!d) return `${label} —`;
+    const b = [`${d.icon || ''} ${label} ${fmtT(d.tmin)}~${fmtT(d.tmax)} ${d.text || ''}`];
+    if (d.precipProb !== null && d.precipProb !== undefined && d.precipProb >= 20) b.push(`降水 ${Math.round(d.precipProb)}%`);
+    return b.join(' ');
+  };
+  $('wToday').textContent = fmtDay('今天', w.today);
+  $('wTomorrow').textContent = fmtDay('明天', w.tomorrow);
+  const alerts = w.alerts || [];
+  const alertEl = $('wAlert');
+  if (alerts.length) {
+    alertEl.classList.remove('hidden');
+    alertEl.textContent = `⚠️ ${alerts.join('；')}`;
+  } else {
+    alertEl.classList.add('hidden');
+  }
+  const when = w.fetchedAt ? new Date(w.fetchedAt).toLocaleString('zh-CN') : '';
+  strip.title = when ? `获取于 ${when} · 数据源 Open-Meteo` : '数据源 Open-Meteo';
+}
+
 async function refresh() {  try {
     const r = await api('/api/status');
     if (r.ok) render(r.status);
@@ -632,7 +693,7 @@ async function refresh() {  try {
 /* ------------------------------- actions -------------------------------- */
 
 $('windowDays').addEventListener('change', () => { settingsDirty = true; });
-for (const id of ['outputMode', 'includeLink', 'notifyWhenEmpty', 'emptyInterval', 'portalStatus', 'mailbox']) {
+for (const id of ['outputMode', 'includeLink', 'notifyWhenEmpty', 'emptyInterval', 'portalStatus', 'mailbox', 'weatherEnabled']) {
   $(id).addEventListener('change', () => {
     settingsDirty = true;
     if (id === 'notifyWhenEmpty') {
@@ -650,6 +711,7 @@ $('btnSaveSettings').addEventListener('click', async () => {
     emptyNotifyIntervalHours: Number($('emptyInterval').value),
     portalStatus: $('portalStatus').checked,
     mailbox: $('mailbox').checked,
+    weatherEnabled: $('weatherEnabled').checked,
   };
   const r = await api('/api/settings', { method: 'POST', body: JSON.stringify(body) });
   if (r.ok) {
